@@ -19,16 +19,21 @@ import { useInView } from 'react-intersection-observer';
 import { VARIANTS } from "../public/constant/animation";
 import { useAnimations } from "../hooks/useAnimations";
 import { WEB3_CONFIG } from "../public/constant/web3";
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount, useWriteContract } from 'wagmi';
+import { parseEther } from 'ethers';
+import {
+  base,
+  baseSepolia
+} from 'wagmi/chains';
+import { useSwitchChain, useChainId } from 'wagmi';
 
 export default function Home() {
   const animations = useAnimations();
 
   // State
   const [isMobile, setIsMobile] = useState(false);
-  const [isPopupMetamaskNotFound, setIsPopupMetamaskNotFound] = useState(false);
-  const [isPopupWrongNetwork, setIsPopupWrongNetwork] = useState(false);
-  const [isPopupSwitchNetworkSuccess, setIsPopupSwitchNetworkSuccess] =
-    useState(false);
+  const [currentWallet, setCurrentWallet] = useState(null);
   const [isPopupSomethingWentWrong, setIsPopupSomethingWentWrong] =
     useState(false);
   const [isPopupWelcome, setIsPopupWelcome] = useState(false);
@@ -37,16 +42,29 @@ export default function Home() {
   const [isActiveMenuMobile, setIsActiveMenuMobile] = useState(false);
 
   const [isPopupNotInWhitelist, setIsPopupNotInWhitelist] = useState(false);
-  const [isPopupMintHasNotStarted, setIsPopupMintHasNotStarted] =
-    useState(false);
+  const [isPopupMintHasNotStarted, setIsPopupMintHasNotStarted] = useState(false);
 
   const [loadingScreen, setLoadingScreen] = useState(false);
   const [loadingScreenMessage, setLoadingScreenMessage] = useState("Loading");
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('mint');
   const [mintQuantity, setMintQuantity] = useState(1);
-  const [isConnected, setIsConnected] = useState(false);
+
+  const chainId = useChainId();
+
+  // Write contract
+  const {
+    data: hash,
+    writeContract,
+    error: writeError,
+    isPending: isWritePending
+  } = useWriteContract();
+
+  // Wagmi hooks
+  const { address, isConnected } = useAccount();
+  const { switchChain } = useSwitchChain();
+
+  console.log({ address, isConnected })
 
   // Hàm detect mobile screen
   useEffect(() => {
@@ -66,7 +84,6 @@ export default function Home() {
   }, []);
 
   // Web3
-  const [currentWallet, setCurrentWallet] = useState(null);
 
   useEffect(() => {
     if (localStorage.getItem("currentWallet")) {
@@ -120,15 +137,27 @@ export default function Home() {
     }
   };
 
+  const handleSwitchChain = async () => {
+    try {
+      await switchChain({
+        chainId: base.id,
+      });
+    } catch (error) {
+      console.error('Failed to switch chain:', error);
+    }
+  };
+
   const detectNetwork = async () => {
-    const web3 = new Web3(Web3.givenProvider || WEB3_CONFIG.RPC_URL);
+    const web3 = new Web3("https://base.llamarpc.com");
+    // const web3 = new Web3(Web3.givenProvider || base.rpcUrls.default.http[0]);
     const { ethereum } = window;
     let checkNetwork = true;
 
     if (ethereum) {
       await web3.eth.getChainId().then((res) => {
-        if (res !== WEB3_CONFIG.CHAIN_ID) {
-          setIsPopupWrongNetwork(true);
+        console.log({ res });
+        if (Number(res) !== base.id) {
+          handleSwitchChain()
           checkNetwork = false;
         } else {
           // Network is correct
@@ -141,21 +170,24 @@ export default function Home() {
 
   const mintNFT = async () => {
     const checkNetWork = await detectNetwork();
+    console.log({ checkNetWork })
     if (checkNetWork) {
-      const web3 = new Web3(Web3.givenProvider || WEB3_CONFIG.RPC_URL);
+    const web3 = new Web3("https://base.llamarpc.com");
 
-      if (currentWallet) {
+      // const web3 = new Web3(Web3.givenProvider || base.rpcUrls.default.http[0]);
+
+      if (address) {
         setLoadingScreenMessage("Minting...");
         setLoadingScreen(true);
 
-        const checkMintHasNotStarted = await mintHasNotStarted();
-        if (checkMintHasNotStarted) {
-          setIsPopupMintHasNotStarted(true);
-          setIsPopupWelcome(false);
-          setIsPopupSwitchNetworkSuccess(false);
-          setLoadingScreen(false);
-          return false;
-        }
+        // const checkMintHasNotStarted = await mintHasNotStarted();
+        // if (checkMintHasNotStarted) {
+        //   setIsPopupMintHasNotStarted(true);
+        //   setIsPopupWelcome(false);
+        //   setIsPopupSwitchNetworkSuccess(false);
+        //   setLoadingScreen(false);
+        //   return false;
+        // }
 
         // const whiteListUser = await checkWhiteListUser(currentWallet);
         // if (!whiteListUser) {
@@ -166,8 +198,8 @@ export default function Home() {
         //   return false;
         // }
 
-        web3.eth.defaultAccount = currentWallet;
-        const contractMOUNT = new web3.eth.Contract(ABI, WEB3_CONFIG.CONTRACT_ADDRESS);
+        // web3.eth.defaultAccount = address;
+        const contractDEFIDOG = new web3.eth.Contract(ABI, WEB3_CONFIG.CONTRACT_ADDRESS);
 
         // // Track wallet mint status
         // const check = await mintTracker();
@@ -176,15 +208,24 @@ export default function Home() {
         //   setLoadingScreen(false);
         // } else {
         //   // const merkleHexProof = await getMerkleHexProof(currentWallet);
-
-        contractMOUNT.methods
-          .publicMint(1)
+        // Call mint function
+        // writeContract({
+        //   address: WEB3_CONFIG.CONTRACT_ADDRESS,
+        //   abi: ABI,
+        //   functionName: 'mint',
+        //   args: [1],
+        //   value: WEB3_CONFIG.MINT_PRICE,
+        // });
+        console.log({ contractDEFIDOG, address });
+        contractDEFIDOG.methods
+          .mint(1)
           .send({
-            from: currentWallet,
-            value: WEB3_CONFIG.MINT_PRICE,
+            from: address,
+            // value: WEB3_CONFIG.MINT_PRICE,
+            value: 10000000000000,
           })
           .on("receipt", function (receipt) {
-            console.log(receipt);
+            console.log({receipt});
             setLoadingScreen(false);
             setIsPopupMintSuccess(true);
           })
@@ -207,6 +248,29 @@ export default function Home() {
     }
   };
 
+  const mintNFTs = async () => {
+    if (!isConnected) {
+      alert("Vui lòng kết nối ví trước!");
+      return;
+    }
+
+    if (chainId !== base.id) {
+      alert("Vui lòng chuyển sang Base Sepolia!");
+      return;
+    }
+
+    try {
+      await writeContract({
+        address: WEB3_CONFIG.CONTRACT_ADDRESS,
+        abi: ABI,
+        functionName: 'mint',
+        args: [1], // Số lượng NFT
+        value: parseEther('0.00001'), // Phí mint
+      });
+    } catch (error) {
+      console.error("Lỗi mint:", error);
+    }
+  };
   // // Track wallet mint status
   // const mintTracker = async () => {
   //   const checkNetWork = await detectNetwork();
@@ -215,8 +279,8 @@ export default function Home() {
   //     const web3 = new Web3(Web3.givenProvider || RPC_URL);
   //     if (currentWallet) {
   //       web3.eth.defaultAccount = currentWallet;
-  //       const contractMOUNT = new web3.eth.Contract(ABI, contractAddress);
-  //       check = await contractMOUNT.methods.mintTracker(currentWallet).call();
+  //       const contractDEFIDOG = new web3.eth.Contract(ABI, contractAddress);
+  //       check = await contractDEFIDOG.methods.mintTracker(currentWallet).call();
   //     }
   //   }
 
@@ -226,7 +290,7 @@ export default function Home() {
 
   // Check mint has not started
   const mintHasNotStarted = async () => {
-    const web3 = new Web3(Web3.givenProvider || WEB3_CONFIG.RPC_URL);
+    const web3 = new Web3(Web3.givenProvider || base.rpcUrls.default.http[0]);
     const contract = new web3.eth.Contract(ABI, WEB3_CONFIG.CONTRACT_ADDRESS);
     return await contract.methods.pausePublicMint().call();
   };
@@ -293,13 +357,20 @@ export default function Home() {
               </div>
 
               {/* Wallet Connect */}
-              <button
-                onClick={connectWallet}
-                className="bg-gradient-to-r from-[#003fdd] to-[#000d9f] px-4 py-2 rounded-lg text-white font-medium flex items-center space-x-2 transition-all"
-              >
-                <Wallet className="w-4 h-4" />
-                <span>{isConnected ? '0x1234...5678' : 'Connect Wallet'}</span>
-              </button>
+              <div className="flex items-center justify-center">
+                <div className="flex items-center justify-end p-3">
+                  <ConnectButton />
+                </div>
+                {isConnected && <button
+                  onClick={mintNFTs}
+                  className="bg-gradient-to-r from-[#003fdd] to-[#000d9f] px-4 py-2 rounded-lg text-white font-medium flex items-center space-x-2 transition-all"
+                >
+                  <span>Mint NFT</span>
+
+                </button>}
+              </div>
+
+
             </div>
           </div>
 
@@ -329,7 +400,7 @@ export default function Home() {
                     left: `${isMobile ? '22%' : '35%'}`,
                     transform: 'translateX(-50%)',
                     width: `${isMobile ? '58%' : '32%'}`,
-                    y:  animations.transforms.yDefiDog
+                    y: animations.transforms.yDefiDog
                   }}
                 >
                   <Image
@@ -580,7 +651,7 @@ export default function Home() {
               style={{
                 boxShadow: `${isMobile ? 'inset -6px 0 4px rgba(77, 80, 125, 0.5), inset 0 -6px 4px rgba(77, 80, 125, 0.5)' : 'inset -10px 0 4px rgba(77, 80, 125, 0.5), inset 0 -10px 4px rgba(77, 80, 125, 0.5)'}`
               }}
-              
+
             >
               <div className="absolute overflow-hidden bottom-[-10px] right-0 left-0 mx-auto translate-x-[20%]">
                 <Image
@@ -825,41 +896,7 @@ export default function Home() {
           </div>
         </div>
       </div>
-      {/* Popup Metamask Not Found */}
-      <div
-        className={`absolute z-[999] top-0 left-0 overflow-hidden bg-[#000000]/80 transition-opacity ease-in-out duration-300 ${isPopupMetamaskNotFound
-          ? "w-screen h-screen opacity-100"
-          : "w-0 h-0 opacity-0"
-          }`}
-      >
-        <MetaMaskNotFoundPopup
-          triggerParentUpdate={setIsPopupMetamaskNotFound}
-        />
-      </div>
-      {/* Popup Wrong Network */}
-      <div
-        className={`absolute z-[999] top-0 left-0 overflow-hidden bg-[#000000]/80 transition-opacity ease-in-out duration-300 ${isPopupWrongNetwork
-          ? "w-screen h-screen opacity-100"
-          : "w-0 h-0 opacity-0"
-          }`}
-      >
-        <WrongNetworkPopup
-          triggerParentUpdate={setIsPopupWrongNetwork}
-          triggerSecondParentUpdate={setIsPopupSwitchNetworkSuccess}
-        />
-      </div>
-      {/* Popup Switch Network Success */}
-      <div
-        className={`absolute z-[999] top-0 left-0 overflow-hidden bg-[#000000]/80 transition-opacity ease-in-out duration-300 ${isPopupSwitchNetworkSuccess
-          ? "w-screen h-screen opacity-100"
-          : "w-0 h-0 opacity-0"
-          }`}
-      >
-        <SwitchNetworkSuccessPopup
-          triggerParentUpdate={setIsPopupSwitchNetworkSuccess}
-          triggerMintNFT={() => mintNFT()}
-        />
-      </div>
+
       {/* Popup Something Went Wrong */}
       <div
         className={`absolute z-[999] top-0 left-0 overflow-hidden bg-[#000000]/80 transition-opacity ease-in-out duration-300 ${isPopupSomethingWentWrong
