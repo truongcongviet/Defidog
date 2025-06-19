@@ -1,0 +1,5 @@
+export const UI_CONFIG = {
+    MOBILE_BREAKPOINT: 768,
+    DEFAULT_MINT_QUANTITY: 1,
+    DEFAULT_ACTIVE_TAB: 'mint',
+};
