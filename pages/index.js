@@ -11,6 +11,7 @@ import WelcomePopup from "../components/popup/webcome";
 import MintSuccessPopup from "../components/popup/mint-success";
 import MintLimitReachedPopup from "../components/popup/mint-limit-reached";
 import InformationPopup from "../components/popup/information";
+import MintAmountPopup from "../components/popup/mint-amount";
 import ABI from "../public/abi.json";
 import { Parallax } from "react-parallax";
 import { Wallet, Menu, X, Star, Users, Clock, Shield } from 'lucide-react';
@@ -33,7 +34,6 @@ export default function Home() {
 
   // State
   const [isMobile, setIsMobile] = useState(false);
-  const [currentWallet, setCurrentWallet] = useState(null);
   const [isPopupSomethingWentWrong, setIsPopupSomethingWentWrong] =
     useState(false);
   const [isPopupWelcome, setIsPopupWelcome] = useState(false);
@@ -85,58 +85,6 @@ export default function Home() {
 
   // Web3
 
-  useEffect(() => {
-    if (localStorage.getItem("currentWallet")) {
-      setCurrentWallet(localStorage.getItem("currentWallet"));
-    }
-  }, []);
-  useEffect(() => {
-    if (currentWallet != null) {
-      localStorage.setItem("currentWallet", currentWallet);
-    } else {
-      localStorage.setItem("currentWallet", "");
-    }
-  }, [currentWallet]);
-  useEffect(() => {
-    accountsChanged().then((res) => {
-      console.log(res);
-    });
-  }, []);
-
-  const connectWallet = async () => {
-    const { ethereum } = window;
-    if (ethereum) {
-      await ethereum
-        .request({
-          method: "eth_requestAccounts",
-        })
-        .then(async (accounts) => {
-          if (accounts !== undefined) {
-            await setCurrentWallet(accounts[0]);
-            const detect = await detectNetwork();
-            if (detect) {
-              setIsPopupWelcome(true);
-            }
-          }
-        });
-    } else {
-      setIsPopupMetamaskNotFound(true);
-    }
-  };
-
-  const accountsChanged = async () => {
-    if (typeof window.ethereum !== "undefined") {
-      window.ethereum.on("accountsChanged", async (accounts) => {
-        if (accounts[0]) {
-          await setCurrentWallet(accounts[0]);
-          await connectWallet();
-        } else {
-          setCurrentWallet(null);
-        }
-      });
-    }
-  };
-
   const handleSwitchChain = async () => {
     try {
       await switchChain({
@@ -168,132 +116,65 @@ export default function Home() {
     return checkNetwork;
   };
 
-  const mintNFT = async () => {
-    const checkNetWork = await detectNetwork();
-    console.log({ checkNetWork })
-    if (checkNetWork) {
-    const web3 = new Web3("https://base.llamarpc.com");
+  // Mint NFT popup state
+  const [isMintPopupOpen, setIsMintPopupOpen] = useState(false);
 
-      // const web3 = new Web3(Web3.givenProvider || base.rpcUrls.default.http[0]);
+  // Show popup when user clicks Mint NFT button
+  const handleShowMintPopup = () => setIsMintPopupOpen(true);
+  const handleCloseMintPopup = () => setIsMintPopupOpen(false);
 
-      if (address) {
-        setLoadingScreenMessage("Minting...");
-        setLoadingScreen(true);
-
-        // const checkMintHasNotStarted = await mintHasNotStarted();
-        // if (checkMintHasNotStarted) {
-        //   setIsPopupMintHasNotStarted(true);
-        //   setIsPopupWelcome(false);
-        //   setIsPopupSwitchNetworkSuccess(false);
-        //   setLoadingScreen(false);
-        //   return false;
-        // }
-
-        // const whiteListUser = await checkWhiteListUser(currentWallet);
-        // if (!whiteListUser) {
-        //   setIsPopupNotInWhitelist(true);
-        //   setIsPopupWelcome(false);
-        //   setIsPopupSwitchNetworkSuccess(false);
-        //   setLoadingScreen(false);
-        //   return false;
-        // }
-
-        // web3.eth.defaultAccount = address;
-        const contractDEFIDOG = new web3.eth.Contract(ABI, WEB3_CONFIG.CONTRACT_ADDRESS);
-
-        // // Track wallet mint status
-        // const check = await mintTracker();
-        // if (check) {
-        //   setIsPopupMintLimitReached(true);
-        //   setLoadingScreen(false);
-        // } else {
-        //   // const merkleHexProof = await getMerkleHexProof(currentWallet);
-        // Call mint function
-        // writeContract({
-        //   address: WEB3_CONFIG.CONTRACT_ADDRESS,
-        //   abi: ABI,
-        //   functionName: 'mint',
-        //   args: [1],
-        //   value: WEB3_CONFIG.MINT_PRICE,
-        // });
-        console.log({ contractDEFIDOG, address });
-        contractDEFIDOG.methods
-          .mint(1)
-          .send({
-            from: address,
-            // value: WEB3_CONFIG.MINT_PRICE,
-            value: 10000000000000,
-          })
-          .on("receipt", function (receipt) {
-            console.log({receipt});
-            setLoadingScreen(false);
-            setIsPopupMintSuccess(true);
-          })
-          .on("error", function (error, receipt) {
-            console.log(error, receipt);
-            setLoadingScreen(false);
-            if (error && error.code !== 4001) {
-              setIsPopupSomethingWentWrong(true);
-            }
-          })
-          .catch(function (e) {
-            console.log(e);
-            setLoadingScreen(false);
-            // setIsPopupSomethingWentWrong(true);
-          });
-        // }
-      } else {
-        await connectWallet();
-      }
-    }
-  };
-
-  const mintNFTs = async () => {
+  // Mint NFT with selected amount from popup
+  const handleMintNFTWithAmount = async (amount) => {
+    const totalCost = amount * WEB3_CONFIG.MINT_PRICE;
     if (!isConnected) {
-      alert("Vui lòng kết nối ví trước!");
+      alert("Please connect wallet first!");
       return;
     }
-
     if (chainId !== base.id) {
-      alert("Vui lòng chuyển sang Base Sepolia!");
+      alert("Please switch to Base!");
       return;
     }
-
     try {
-      await writeContract({
+      setLoadingScreen(true);
+      setLoadingScreenMessage("Minting NFT...");
+      const data = await writeContract({
         address: WEB3_CONFIG.CONTRACT_ADDRESS,
         abi: ABI,
         functionName: 'mint',
-        args: [1], // Số lượng NFT
-        value: parseEther('0.00001'), // Phí mint
+        args: [amount],
+        value: parseEther(totalCost.toString()),
+        chainId: base.id,
       });
+      if (data) {
+        const receipt = await data.wait();
+        const events = receipt.events;
+        const mintEvent = events.find(event => event.event === 'Mint');
+        const tokenId = mintEvent?.args?.tokenId;
+        setIsPopupMintSuccess(true);
+        console.log('Transaction successful:', {
+          hash: receipt.transactionHash,
+          tokenId,
+          from: address
+        });
+      }
     } catch (error) {
-      console.error("Lỗi mint:", error);
+      console.error("Error mint:", error);
+      setLoadingScreen(false);
+      if (error && error.code !== 4001) {
+        setIsPopupSomethingWentWrong(true);
+      }
+    } finally {
+      setLoadingScreen(false);
+      setIsMintPopupOpen(false);
     }
   };
-  // // Track wallet mint status
-  // const mintTracker = async () => {
-  //   const checkNetWork = await detectNetwork();
-  //   let check = false;
-  //   if (checkNetWork) {
-  //     const web3 = new Web3(Web3.givenProvider || RPC_URL);
-  //     if (currentWallet) {
-  //       web3.eth.defaultAccount = currentWallet;
-  //       const contractDEFIDOG = new web3.eth.Contract(ABI, contractAddress);
-  //       check = await contractDEFIDOG.methods.mintTracker(currentWallet).call();
-  //     }
-  //   }
-
-  //   // return check;
-  //   return false;
-  // };
 
   // Check mint has not started
-  const mintHasNotStarted = async () => {
-    const web3 = new Web3(Web3.givenProvider || base.rpcUrls.default.http[0]);
-    const contract = new web3.eth.Contract(ABI, WEB3_CONFIG.CONTRACT_ADDRESS);
-    return await contract.methods.pausePublicMint().call();
-  };
+  // const mintHasNotStarted = async () => {
+  //   const web3 = new Web3(Web3.givenProvider || base.rpcUrls.default.http[0]);
+  //   const contract = new web3.eth.Contract(ABI, WEB3_CONFIG.CONTRACT_ADDRESS);
+  //   return await contract.methods.pausePublicMint().call();
+  // };
 
   // // Placeholder image
   // const shimmer = (w, h) => `
@@ -342,9 +223,8 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               {/* Logo */}
-
               <div className="relative w-[110px] lg:w-[201px] h-[50px] lg:h-[80px]">
-                <Link href={"/"}>
+                <Link href="/">
                   <a className="relative block w-full h-full">
                     <Image
                       src="/images/defido-logo.png"
@@ -359,23 +239,36 @@ export default function Home() {
               {/* Wallet Connect */}
               <div className="flex items-center justify-center">
                 <div className="flex items-center justify-end p-3">
-                  <ConnectButton />
+                  <ConnectButton
+                    showNetworkSwitch={false}
+                    accountStatus={{
+                      smallScreen: 'avatar',
+                      largeScreen: 'full'
+                    }}
+                    chainStatus={{
+                      smallScreen: 'none',
+                      largeScreen: 'none'
+                    }}
+                  />
                 </div>
-                {isConnected && <button
-                  onClick={mintNFTs}
-                  className="bg-gradient-to-r from-[#003fdd] to-[#000d9f] px-4 py-2 rounded-lg text-white font-medium flex items-center space-x-2 transition-all"
-                >
-                  <span>Mint NFT</span>
-
-                </button>}
+                {isConnected && (
+                  <button
+                    onClick={handleShowMintPopup}
+                    className="bg-gradient-to-r from-[#003fdd] to-[#000d9f] px-4 py-2 rounded-lg text-white font-medium flex items-center space-x-2 transition-all"
+                  >
+                    <span>Mint NFT</span>
+                  </button>
+                )}
               </div>
-
-
             </div>
           </div>
-
         </header>
 
+        <MintAmountPopup
+          isOpen={isMintPopupOpen}
+          onClose={handleCloseMintPopup}
+          onMint={handleMintNFTWithAmount}
+        />
         <main className="flex-1 relative">
           {/* Defi dog Header - Background Image */}
           <div className="overflow-hidden max-w-4xl w-full mx-auto">
@@ -395,7 +288,7 @@ export default function Home() {
 
               <div className="relative w-full h-auto flex flex-col items-center pt-24 lg:pt-10 space-y-6">
                 <motion.div
-                  className="w-full flex flex-col items-center absolute bottom-0 z-50"
+                  className="w-full flex flex-col items-center absolute bottom-0 z-40"
                   style={{
                     left: `${isMobile ? '22%' : '35%'}`,
                     transform: 'translateX(-50%)',
@@ -414,7 +307,7 @@ export default function Home() {
 
                 </motion.div>
                 <motion.div
-                  className="w-full flex flex-col items-center absolute bottom-[-24px] lg:bottom-[-40px] z-50"
+                  className="w-full flex flex-col items-center absolute bottom-[-24px] lg:bottom-[-40px] z-40"
                   style={{
                     left: `${isMobile ? '32%' : '35%'}`,
                     transform: 'translateX(-50%)',
@@ -492,7 +385,7 @@ export default function Home() {
 
                 {/* Ảnh chính giữa */}
                 <motion.div
-                  className="absolute bottom-0 z-50"
+                  className="absolute bottom-0 z-40"
                   style={{
                     left: '35%',
                     transform: 'translateX(-50%)',
