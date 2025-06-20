@@ -1,74 +1,105 @@
-import React, { Fragment, useRef } from "react";
-import useOutsideClick from "../../common/outside-click";
-import Image from "next/image";
+// components/popup/mint-success.js
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { base } from "viem/chains";
 
-const MintSuccessPopup = (props) => {
-  // Handle click outside popup
-  const wrapperRef = useRef(null);
-  useOutsideClick(wrapperRef, () => {
-    props.triggerParentUpdate(false);
-  });
+export default function MintSuccessPopup({ isOpen, onClose, txHash }) {
+  const explorerUrl = `${base.blockExplorers.default.url}/tx/${txHash}`;
 
   return (
-    <Fragment>
-      <div
-        className="absolute w-[calc(100%-16px)] lg:w-[460px] h-[360px] lg:h-[460px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-        ref={wrapperRef}
-      >
-        <div className="relative w-full h-full">
-          <Image
-            src="/images/bg-popup.png"
-            layout="fill"
-            objectFit="contain"
-            alt="BG Popup"
-            priority
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={onClose}
           />
-        </div>
-        <div className="absolute z-10 top-0 left-0 w-full h-full">
-          <div className="absolute top-[52%] lg:top-1/2 left-1/2 w-[320px] h-auto -translate-x-1/2 -translate-y-1/2 text-center">
-            <div className="mb-[8px] p-[10px]">
-              <div className="relative w-[68px] lg:w-[80px] h-[68px] lg:h-[80px] mx-auto">
-                <Image
-                  src="/images/icon/welcome.png"
-                  layout="fill"
-                  objectFit="contain"
-                  alt="Icon Popup"
-                  priority
-                />
-              </div>
-            </div>
-            <div className="mb-[8px] lg:mb-[24px]">
-              <div className="mb-[4px]">
-                <span className="text-[#DFC889] text-[16px] lg:text-[20px] leading-[110%] -tracking-[0.03em] lg:tracking-[0.02em] font-secondary font-medium uppercase">
-                  Mint Success!
-                </span>
-              </div>
-              <div>
-                <span className="text-[#9A9A9A] text-[12px] lg:text-[14px] leading-[20px]">
-                  You have successfully minted Wanderer
-                </span>
-              </div>
-            </div>
-            <div>
-              <Link href={"https://opensea.io/collection/roe-legendary-mounts"}>
-                <a
-                  className="relative inline-block border border-[#D7CABB]/90 rounded-[3px] transition-all duration-300 bg-[url('~/public/images/bg-button.png')] bg-center before:absolute before:z-10 before:top-0 before:left-0 before:w-full before:h-full before:bg-black before:transition-opacity before:duration-300 before:opacity-70 hover:before:opacity-30"
-                  title="View on OpenSea"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <span className="relative z-20 block text-[16px] h-[16px] leading-[16px] font-secondary font-bold uppercase bg-[url('~/public/images/bg-button-text.png')] bg-repeat [-webkit-background-clip:text] [-webkit-text-fill-color:transparent] [-webkit-font-smoothing:antialiased] mx-[32px] mt-[15px] mb-[15px]">
-                    View on OpenSea
-                  </span>
-                </a>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Fragment>
-  );
-};
 
-export default MintSuccessPopup;
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+            className="relative w-full max-w-md rounded-2xl p-8 shadow-xl"
+            style={{
+              background: 'radial-gradient(ellipse at 60% 40%, #7f9cf5 0%, #a78bfa 40%, #c4b5fd 100%)',
+              boxShadow: '0 10px 32px 0 rgba(80, 80, 180, 0.15)',
+            }}
+          >
+            <button
+              onClick={onClose}
+              className="absolute right-4 top-4 text-gray-700 transition-colors"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
+            <div className="text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+                <svg
+                  className="h-10 w-10 text-green-600"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+              <h3 className="mt-4 text-2xl font-bold text-white">
+                Mint successfully!
+              </h3>
+
+              <div className="mt-6">
+                <Link
+                  href={explorerUrl}
+                  legacyBehavior
+                  passHref
+                >
+                  <a
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center rounded-lg bg-[#2F2F2F] px-4 py-2 text-sm font-medium text-white hover:bg-[#3F3F3F] transition-colors"
+                  >
+                    <span>Explorer on scan</span>
+                    <svg
+                      className="ml-2 h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      />
+                    </svg>
+                  </a>
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}

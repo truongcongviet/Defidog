@@ -23,6 +23,7 @@ import { WEB3_CONFIG } from "../public/constant/web3";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useWriteContract } from 'wagmi';
 import { parseEther } from 'ethers';
+import { useResize } from '../hooks/useResize';
 import {
   base,
   baseSepolia
@@ -31,26 +32,24 @@ import { useSwitchChain, useChainId } from 'wagmi';
 
 export default function Home() {
   const animations = useAnimations();
-
+  const isMobile = useResize();
   // State
-  const [isMobile, setIsMobile] = useState(false);
   const [isPopupSomethingWentWrong, setIsPopupSomethingWentWrong] =
     useState(false);
   const [isPopupWelcome, setIsPopupWelcome] = useState(false);
-  const [isPopupMintSuccess, setIsPopupMintSuccess] = useState(false);
   const [isPopupMintLimitReached, setIsPopupMintLimitReached] = useState(false);
-  const [isActiveMenuMobile, setIsActiveMenuMobile] = useState(false);
+  const [mintSuccess, setMintSuccess] = useState(false);
+  const [mintTxHash, setMintTxHash] = useState('');
 
   const [isPopupNotInWhitelist, setIsPopupNotInWhitelist] = useState(false);
   const [isPopupMintHasNotStarted, setIsPopupMintHasNotStarted] = useState(false);
 
   const [loadingScreen, setLoadingScreen] = useState(false);
   const [loadingScreenMessage, setLoadingScreenMessage] = useState("Loading");
+  const [isMintPopupOpen, setIsMintPopupOpen] = useState(false);
 
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [mintQuantity, setMintQuantity] = useState(1);
-
-  const chainId = useChainId();
+  const handleShowMintPopup = () => setIsMintPopupOpen(true);
+  const handleCloseMintPopup = () => setIsMintPopupOpen(false);
 
   // Write contract
   const {
@@ -61,30 +60,20 @@ export default function Home() {
   } = useWriteContract();
 
   // Wagmi hooks
+  const chainId = useChainId();
   const { address, isConnected } = useAccount();
   const { switchChain } = useSwitchChain();
 
   console.log({ address, isConnected })
 
-  // Hàm detect mobile screen
   useEffect(() => {
-    const checkMobile = () => {
-      const mobileBreakpoint = 768; // Limited mobile
-      setIsMobile(window.innerWidth < mobileBreakpoint);
-    };
-
-    // First run
-    checkMobile();
-
-    // add event listener when resize
-    window.addEventListener('resize', checkMobile);
-
-    // Cleanup
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+    if (isConnected && hash) {
+      setMintTxHash(hash);
+      setMintSuccess(true);
+    }
+  }, [isConnected, hash]);
 
   // Web3
-
   const handleSwitchChain = async () => {
     try {
       await switchChain({
@@ -116,13 +105,6 @@ export default function Home() {
     return checkNetwork;
   };
 
-  // Mint NFT popup state
-  const [isMintPopupOpen, setIsMintPopupOpen] = useState(false);
-
-  // Show popup when user clicks Mint NFT button
-  const handleShowMintPopup = () => setIsMintPopupOpen(true);
-  const handleCloseMintPopup = () => setIsMintPopupOpen(false);
-
   // Mint NFT with selected amount from popup
   const handleMintNFTWithAmount = async (amount) => {
     const totalCost = amount * WEB3_CONFIG.MINT_PRICE;
@@ -145,24 +127,24 @@ export default function Home() {
         value: parseEther(totalCost.toString()),
         chainId: base.id,
       });
-      if (data) {
-        const receipt = await data.wait();
-        const events = receipt.events;
-        const mintEvent = events.find(event => event.event === 'Mint');
-        const tokenId = mintEvent?.args?.tokenId;
-        setIsPopupMintSuccess(true);
-        console.log('Transaction successful:', {
-          hash: receipt.transactionHash,
-          tokenId,
-          from: address
-        });
-      }
+
+      // if (data) {
+      //   const receipt = await data.wait();
+      //   const events = receipt.events;
+      //   const mintEvent = events.find(event => event.event === 'Mint');
+      //   const tokenId = mintEvent?.args?.tokenId;
+      //   console.log('Transaction successful:', {
+      //     hash: receipt.transactionHash,
+      //     tokenId,
+      //     from: address
+      //   });
+      // }
     } catch (error) {
       console.error("Error mint:", error);
       setLoadingScreen(false);
-      if (error && error.code !== 4001) {
-        setIsPopupSomethingWentWrong(true);
-      }
+      // if (error && error.code !== 4001) {
+      //   setIsPopupSomethingWentWrong(true);
+      // }
     } finally {
       setLoadingScreen(false);
       setIsMintPopupOpen(false);
@@ -268,6 +250,11 @@ export default function Home() {
           isOpen={isMintPopupOpen}
           onClose={handleCloseMintPopup}
           onMint={handleMintNFTWithAmount}
+        />
+        <MintSuccessPopup
+          isOpen={mintSuccess}
+          onClose={() => setMintSuccess(false)}
+          txHash={mintTxHash}
         />
         <main className="flex-1 relative">
           {/* Defi dog Header - Background Image */}
@@ -812,16 +799,16 @@ export default function Home() {
         />
       </div>
       {/* Popup Mint Success */}
-      <div
+      {/* <div
         className={`absolute z-[999] top-0 left-0 overflow-hidden bg-[#000000]/80 transition-opacity ease-in-out duration-300 ${isPopupMintSuccess
           ? "w-screen h-screen opacity-100"
           : "w-0 h-0 opacity-0"
           }`}
       >
         <MintSuccessPopup triggerParentUpdate={setIsPopupMintSuccess} />
-      </div>
+      </div> */}
       {/* Popup Mint Limit Reached */}
-      <div
+      {/* <div
         className={`absolute z-[999] top-0 left-0 overflow-hidden bg-[#000000]/80 transition-opacity ease-in-out duration-300 ${isPopupMintLimitReached
           ? "w-screen h-screen opacity-100"
           : "w-0 h-0 opacity-0"
@@ -830,9 +817,9 @@ export default function Home() {
         <MintLimitReachedPopup
           triggerParentUpdate={setIsPopupMintLimitReached}
         />
-      </div>
+      </div> */}
       {/* Popup You're Not In Whitelist */}
-      <div
+      {/* <div
         className={`absolute z-[999] top-0 left-0 overflow-hidden bg-[#000000]/80 transition-opacity ease-in-out duration-300 ${isPopupNotInWhitelist
           ? "w-screen h-screen opacity-100"
           : "w-0 h-0 opacity-0"
@@ -843,9 +830,9 @@ export default function Home() {
           title="Ooops!"
           message="You're not in whitelist"
         />
-      </div>
+      </div> */}
       {/* Popup Mint Has Not Started Yet */}
-      <div
+      {/* <div
         className={`absolute z-[999] top-0 left-0 overflow-hidden bg-[#000000]/80 transition-opacity ease-in-out duration-300 ${isPopupMintHasNotStarted
           ? "w-screen h-screen opacity-100"
           : "w-0 h-0 opacity-0"
@@ -856,7 +843,7 @@ export default function Home() {
           title="Ooops!"
           message="Mint hasn't started yet"
         />
-      </div>
+      </div> */}
     </div>
   );
 }
